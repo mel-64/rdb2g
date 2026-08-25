@@ -3,6 +3,9 @@ name = "rdb2g"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+lto = "fat"
+
 [dependencies]
 anyhow = "1.0.104"
 axum = "0.8.9"
