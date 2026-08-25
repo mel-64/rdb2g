@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use axum::response::{IntoResponse, Response};
 use axum::{Router, response::Redirect, routing::get};
-use log::{debug, error, info};
+use log::{debug, error};
 use reqwest::StatusCode;
 use serde::Deserialize;
+use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -24,7 +25,7 @@ async fn main() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&bind_string)
         .await
         .with_context(|| format!("Couldn't bind to {}", bind_string))?;
-    info!("Starting webserver on {}", bind_string);
+    let _ = writeln!(io::stdout(), "Starting webserver on {}", bind_string);
     axum::serve(listener, app)
         .await
         .with_context(|| format!("Couldn't start webserver on {}", bind_string))?;
