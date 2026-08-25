@@ -1,12 +1,14 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::response::{IntoResponse, Response};
 use axum::{Router, response::Redirect, routing::get};
 use log::{debug, error};
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use tokio::net::{TcpListener, UnixListener};
+
+use crate::init::BindAddr;
 
 mod init;
 
@@ -15,20 +17,22 @@ async fn main() -> Result<()> {
     env_logger::init();
     debug!("Current state: {:?}", init::STATE);
     let conf = &init::STATE.conf;
-    let bind_string = format!("{}:{}", conf.bind_host, conf.bind_port);
+
     tokio::spawn(refresh_state(
         get_badge_number()
             .await
             .expect("First badge counting fetch failed! Exiting.."),
     ));
+
     let app = Router::new().route(&conf.subpath, get(handle));
-    let listener = tokio::net::TcpListener::bind(&bind_string)
-        .await
-        .with_context(|| format!("Couldn't bind to {}", bind_string))?;
-    let _ = writeln!(io::stdout(), "Starting webserver on {}", bind_string);
-    axum::serve(listener, app)
-        .await
-        .with_context(|| format!("Couldn't start webserver on {}", bind_string))?;
+    match conf.bind_addr.clone() {
+        BindAddr::SocketAddrIp(res) => {
+            let _serve = axum::serve(TcpListener::bind(res).await?, app).await;
+        }
+        BindAddr::SocketAddrUnix(res) => {
+            let _serve = axum::serve(UnixListener::bind_addr(&res)?, app).await;
+        }
+    };
     Ok(())
 }
 

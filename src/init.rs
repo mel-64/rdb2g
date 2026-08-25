@@ -1,18 +1,23 @@
+use anyhow::Result;
 use clap::Parser;
 use log::debug;
 use reqwest::Client;
 use reqwest::header;
+use std::str::{self, FromStr};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
+use tokio::net;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, arg_required_else_help=true)]
 pub(crate) struct Args {
-    #[arg(long = "host", default_value = "0.0.0.0", env)]
-    pub(crate) bind_host: String,
-
-    #[arg(short = 'p', long = "port", default_value_t = 8080, env)]
-    pub(crate) bind_port: u16,
+    #[arg(
+        long,
+        default_value = "tcp://0.0.0.0:8080",
+        env,
+        help = "Address to bind to, starting with either tcp:// or unix://"
+    )]
+    pub(crate) bind_addr: BindAddr,
 
     #[arg(short, long, default_value = "https://img.shields.io", env)]
     pub(crate) shield_io_instance: String,
@@ -44,6 +49,19 @@ pub(crate) struct Args {
         env
     )]
     pub(crate) issue: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum BindAddr {
+    SocketAddrUnix(net::unix::SocketAddr),
+    SocketAddrIp(std::net::SocketAddr),
+}
+
+impl FromStr for BindAddr {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+        get_bind_addr(s)
+    }
 }
 
 #[derive(Debug)]
@@ -85,4 +103,16 @@ fn construct_client() -> Client {
         .http2_keep_alive_while_idle(true)
         .build()
         .unwrap()
+}
+
+fn get_bind_addr(addr: &str) -> Result<BindAddr> {
+    let ip_err = anyhow::Error::msg(format!("Not a valid bind address: {}", addr));
+    if let Some(res) = addr.strip_prefix("tcp://") {
+        return Ok(BindAddr::SocketAddrIp(res.parse()?));
+    } else if let Some(res) = addr.strip_prefix("unix://") {
+        return Ok(BindAddr::SocketAddrUnix(
+            std::os::unix::net::SocketAddr::from_pathname(res)?.into(),
+        ));
+    }
+    Err(ip_err)
 }
