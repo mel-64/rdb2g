@@ -8,35 +8,37 @@ use std::time::{Duration, SystemTime};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, arg_required_else_help=true)]
 pub(crate) struct Args {
-    #[arg(long = "host", default_value = "0.0.0.0")]
+    #[arg(long = "host", default_value = "0.0.0.0", env)]
     pub(crate) bind_host: String,
 
-    #[arg(short = 'p', long = "port", default_value_t = 8080)]
+    #[arg(short = 'p', long = "port", default_value_t = 8080, env)]
     pub(crate) bind_port: u16,
 
-    #[arg(short, long, default_value = "https://img.shields.io")]
+    #[arg(short, long, default_value = "https://img.shields.io", env)]
     pub(crate) shield_io_instance: String,
 
     #[arg(
         short = 'r',
         long,
         default_value_t = 60,
-        help = "Time in seconds until cache entry goes stale and has to be refetched"
+        help = "Time in seconds until cache entry goes stale and has to be refetched",
+        env
     )]
     pub(crate) refresh_timeout: u64,
 
-    #[arg(short, long, default_value = "Outdated_Ebuilds")]
+    #[arg(short, long, default_value = "Outdated_Ebuilds", env)]
     pub(crate) badge_text: String,
 
-    #[arg(long, default_value = "green")]
+    #[arg(long, default_value = "green", env)]
     pub(crate) badge_color_zero: String,
 
-    #[arg(long, default_value = "red")]
+    #[arg(long, default_value = "red", env)]
     pub(crate) badge_color_one_or_more: String,
 
     #[arg(
         help = "Forgejo issue api URL to scrape (/api/v1/repos/{owner}/{repo}/issue/comments/{id})",
-        index = 1
+        index = 1,
+        env
     )]
     pub(crate) issue: String,
 }
