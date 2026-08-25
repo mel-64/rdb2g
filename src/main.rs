@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
             .await
             .expect("First badge counting fetch failed! Exiting.."),
     ));
-    let app = Router::new().route("/", get(handle));
+    let app = Router::new().route(&conf.subpath, get(handle));
     let listener = tokio::net::TcpListener::bind(&bind_string)
         .await
         .with_context(|| format!("Couldn't bind to {}", bind_string))?;

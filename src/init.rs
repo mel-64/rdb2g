@@ -35,6 +35,9 @@ pub(crate) struct Args {
     #[arg(long, default_value = "red", env)]
     pub(crate) badge_color_one_or_more: String,
 
+    #[arg(long, default_value = "/", env)]
+    pub(crate) subpath: String,
+
     #[arg(
         help = "Forgejo issue api URL to scrape (/api/v1/repos/{owner}/{repo}/issue/comments/{id})",
         index = 1,
