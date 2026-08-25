@@ -1,0 +1,9 @@
+name: Call build workflow
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: alpine-tools
+    uses: oci-images/rdb2g/.forgejo/workflows/build.yml@main
