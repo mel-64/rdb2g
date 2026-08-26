@@ -7,8 +7,9 @@ use serde::Deserialize;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::net::{TcpListener, UnixListener};
+use tokio::signal;
 
-use crate::init::BindAddr;
+use crate::init::{BindAddr, STATE};
 
 mod init;
 
@@ -27,10 +28,14 @@ async fn main() -> Result<()> {
     let app = Router::new().route(&conf.subpath, get(handle));
     match conf.bind_addr.clone() {
         BindAddr::SocketAddrIp(res) => {
-            let _serve = axum::serve(TcpListener::bind(res).await?, app).await;
+            let _serve = axum::serve(TcpListener::bind(res).await?, app)
+                .with_graceful_shutdown(shutdown_signal())
+                .await?;
         }
         BindAddr::SocketAddrUnix(res) => {
-            let _serve = axum::serve(UnixListener::bind_addr(&res)?, app).await;
+            let _serve = axum::serve(UnixListener::bind_addr(&res)?, app)
+                .with_graceful_shutdown(shutdown_signal())
+                .await?;
         }
     };
     Ok(())
@@ -105,4 +110,33 @@ async fn handle() -> Response {
         color
     ))
     .into_response()
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    #[cfg(unix)]
+    if let BindAddr::SocketAddrUnix(res) = &STATE.conf.bind_addr {
+        let _res = std::fs::remove_file(res.as_pathname().unwrap()).unwrap();
+    }
 }
