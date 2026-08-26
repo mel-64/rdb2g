@@ -2,6 +2,11 @@ name: Call build workflow
 
 on:
   push:
+    paths:
+      - 'src/**/*.rs'
+      - 'Cargo.*'
+      - 'Dockerfile'
+      - '.dockerignore'
 
 jobs:
   build:
