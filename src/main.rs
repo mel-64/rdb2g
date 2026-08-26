@@ -6,8 +6,9 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, UnixListener};
-use tokio::signal;
+use tokio::{io, signal};
 
 use crate::init::{BindAddr, STATE};
 
@@ -18,12 +19,16 @@ async fn main() -> Result<()> {
     env_logger::init();
     debug!("Current state: {:?}", init::STATE);
     let conf = &init::STATE.conf;
+    let mut out = io::stdout();
 
     tokio::spawn(refresh_state(
         get_badge_number()
             .await
             .expect("First badge counting fetch failed! Exiting.."),
     ));
+
+    let _ = out.write_all(b"Config valid, starting server..\n").await;
+    let _ = out.flush().await;
 
     let app = Router::new().route(&conf.subpath, get(handle));
     match conf.bind_addr.clone() {
