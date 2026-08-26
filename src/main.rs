@@ -33,12 +33,12 @@ async fn main() -> Result<()> {
     let app = Router::new().route(&conf.subpath, get(handle));
     match conf.bind_addr.clone() {
         BindAddr::SocketAddrIp(res) => {
-            let _serve = axum::serve(TcpListener::bind(res).await?, app)
+            axum::serve(TcpListener::bind(res).await?, app)
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
         }
         BindAddr::SocketAddrUnix(res) => {
-            let _serve = axum::serve(UnixListener::bind_addr(&res)?, app)
+            axum::serve(UnixListener::bind_addr(&res)?, app)
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
         }
@@ -142,6 +142,6 @@ async fn shutdown_signal() {
 
     #[cfg(unix)]
     if let BindAddr::SocketAddrUnix(res) = &STATE.conf.bind_addr {
-        let _res = std::fs::remove_file(res.as_pathname().unwrap()).unwrap();
+        std::fs::remove_file(res.as_pathname().unwrap()).unwrap();
     }
 }
