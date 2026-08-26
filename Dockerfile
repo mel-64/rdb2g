@@ -7,6 +7,6 @@ RUN --mount=type=cache,target=/app/target \
     cargo build --release && cp /app/target/release/rdb2g /
 
 FROM scratch
-COPY --from=builder /rdb2g /rdb2g
-COPY --from=builder /etc/ssl/certs /etc/ssl/certs 
+COPY --from=builder --parents /rdb2g /etc/ssl/certs /
+USER 1000:1000
 ENTRYPOINT ["/rdb2g"]
