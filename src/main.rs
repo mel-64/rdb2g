@@ -4,10 +4,11 @@ use axum::{Router, response::Redirect, routing::get};
 use log::{debug, error};
 use reqwest::StatusCode;
 use serde::Deserialize;
+use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, UnixListener};
+use tokio::net::{TcpListener, UnixSocket};
 use tokio::{io, signal};
 
 use crate::init::{BindAddr, STATE};
@@ -32,13 +33,23 @@ async fn main() -> Result<()> {
 
     let app = Router::new().route(&conf.subpath, get(handle));
     match conf.bind_addr.clone() {
-        BindAddr::SocketAddrIp(res) => {
-            axum::serve(TcpListener::bind(res).await?, app)
+        BindAddr::SocketAddrIp(addr) => {
+            let listener = TcpListener::bind(addr).await?;
+            axum::serve(listener, app)
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
         }
-        BindAddr::SocketAddrUnix(res) => {
-            axum::serve(UnixListener::bind_addr(&res)?, app)
+        BindAddr::SocketAddrUnix(socket_addr, mode) => {
+            // Can't have no path; the code wouldn't reach this codepath if something were wrong.
+            let path = socket_addr.as_pathname().unwrap();
+
+            let socket = UnixSocket::new_stream()?;
+            socket.bind(path)?;
+            // 128 is the default and hardcoded in UnixListener::bind() so we'll just go with that.
+            let listener = socket.listen(128)?;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+
+            axum::serve(listener, app)
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
         }
@@ -141,7 +152,7 @@ async fn shutdown_signal() {
     }
 
     #[cfg(unix)]
-    if let BindAddr::SocketAddrUnix(res) = &STATE.conf.bind_addr {
-        std::fs::remove_file(res.as_pathname().unwrap()).unwrap();
+    if let BindAddr::SocketAddrUnix(addr, _) = &STATE.conf.bind_addr {
+        std::fs::remove_file(addr.as_pathname().unwrap()).unwrap();
     }
 }

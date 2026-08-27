@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use log::debug;
 use reqwest::Client;
@@ -15,7 +15,7 @@ pub(crate) struct Args {
         long,
         default_value = "tcp://0.0.0.0:8080",
         env,
-        help = "Address to bind to, starting with either tcp:// or unix://"
+        help = "Address to bind to: tcp://{ip}:{port} or unix://{path}{+ optional mode in format \"|666\"}"
     )]
     pub(crate) bind_addr: BindAddr,
 
@@ -53,7 +53,7 @@ pub(crate) struct Args {
 
 #[derive(Debug, Clone)]
 pub(crate) enum BindAddr {
-    SocketAddrUnix(net::unix::SocketAddr),
+    SocketAddrUnix(net::unix::SocketAddr, u32),
     SocketAddrIp(std::net::SocketAddr),
 }
 
@@ -110,8 +110,16 @@ fn get_bind_addr(addr: &str) -> Result<BindAddr> {
     if let Some(res) = addr.strip_prefix("tcp://") {
         return Ok(BindAddr::SocketAddrIp(res.parse()?));
     } else if let Some(res) = addr.strip_prefix("unix://") {
+        let (path, mode) = match res.rsplit_once('|') {
+            Some((path, mode)) => {
+                let mode = u32::from_str_radix(mode, 8).context("Invalid socket mode")?;
+                (path, mode)
+            }
+            None => (res, 0o666),
+        };
         return Ok(BindAddr::SocketAddrUnix(
-            std::os::unix::net::SocketAddr::from_pathname(res)?.into(),
+            std::os::unix::net::SocketAddr::from_pathname(path)?.into(),
+            mode,
         ));
     }
     Err(ip_err)
